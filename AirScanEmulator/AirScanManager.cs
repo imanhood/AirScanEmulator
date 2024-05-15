@@ -9,24 +9,39 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearRegression;
+using Newtonsoft.Json.Linq;
 
 namespace AirScanEmulator
 {
     public class AirScanManager
     {
-        public double AngleOffset { get; internal set; } = Double.NaN;
+        private double _angleOffset = Double.NaN;
+        public double AngleOffset
+        {
+            get => _angleOffset.IsFinite() ? _angleOffset : _airScan.AngleOffset;
+            internal set => _angleOffset = value;
+        }
         public List<Point> Centroids => this.GetCentroids();
         public List<Point> CalibratedCentroids => this.GetCalibratedCentroids();
-        private AirScan _airScan;
+        private readonly AirScan _airScan;
         private CalibrationStructure _calibrationStructureX;
         private CalibrationStructure _calibrationStructureY;
-        private DBSCAN _dbSCAN;
+        private CalibrationStructure _calibrationStructure = new CalibrationStructure();
+        private readonly DBSCAN _dbScan;
         private readonly TrackBar _interval;
+
+        public void ResetCalibration()
+        {
+            _pairPoints = new Dictionary<Point, Point>();
+            _calibrationStructureX = null;
+            _calibrationStructureY = null;
+        }
 
         public bool IsCalibrated
         {
-            get => AngleOffset.IsFinite() && (_calibrationStructureX?.IsCalibrated ?? false) && (_calibrationStructureY?.IsCalibrated ?? false);
+            get => (_calibrationStructureX?.IsCalibrated ?? false) && (_calibrationStructureY?.IsCalibrated ?? false);
             set
             {
                 if(_calibrationStructureX != null)
@@ -38,7 +53,7 @@ namespace AirScanEmulator
         public AirScanManager(AirScan airScan, DBSCAN dbScan, TrackBar interval)
         {
             _airScan = airScan;
-            _dbSCAN = dbScan;
+            _dbScan = dbScan;
             _interval = interval;
         }
         private List<Point> GetCentroids()
@@ -51,7 +66,7 @@ namespace AirScanEmulator
                     return centroids;
 
                 // Find Centroids based on Points
-                var clusters = _dbSCAN.Cluster(points.ToArray());
+                var clusters = _dbScan.Cluster(points.ToArray());
                 clusters.ForEach(x => centroids.Add(x.GetCentroid()));
             }
             catch (Exception e)
@@ -81,8 +96,12 @@ namespace AirScanEmulator
                 (int)CalibrateValue(_calibrationStructureY, x))).ToList();
         }
 
-        private List<(Point, Point)> _calibrationPoints = new List<(Point, Point)>();
-
+        //private List<(Point, Point)> _calibrationPoints = new List<(Point, Point)>();
+        private Dictionary<Point, Point> _pairPoints = new Dictionary<Point, Point>();
+        private List<double> _x1Points;
+        private List<double> _y1Points;
+        private List<double> _x2Points;
+        private List<double> _y2Points;
         public void Calibrate(Point centroid)
         {
             if (this.Centroids == null || this.Centroids.Any() == false)
@@ -90,30 +109,41 @@ namespace AirScanEmulator
 
             var localCentroid = this.Centroids[0];
 
-            if (_calibrationPoints.Count < 20)
+            if (_pairPoints.ContainsKey(centroid))
             {
-                _calibrationPoints.Add((centroid, localCentroid));
-                return;
+                _pairPoints[localCentroid] = _pairPoints[localCentroid].MoveTo(centroid, 2);
             }
             else
             {
-                
+                _pairPoints.Add(localCentroid, centroid);
+            }
+
+            if (_pairPoints.Count < 100)
+            {
+                //_calibrationPoints.Add((centroid, localCentroid));
+                //_x1Points = _pairPoints.Keys.Select(x => (double)x.X).ToList();
+                //_y1Points = _pairPoints.Keys.Select(x => (double)x.Y).ToList();
+                //_x2Points = _pairPoints.Values.Select(x => (double)x.X).ToList();
+                //_y2Points = _pairPoints.Values.Select(x => (double)x.Y).ToList();
+                return;
             }
 
             // Do the MachineLearning based on the first Centroid (this.Centroids[0]) and the centroid parameter
 
-            // Number of iterations (epochs)
-            int numIterations = (int)Math.Ceiling(_interval.Value / 10.0);
+            //// Number of iterations (epochs)
+            //int numIterations = (int)Math.Ceiling(_interval.Value / 10.0);
 
-            // Perform SGD
-            for (int i = 0; i < numIterations; i++)
-            {
-                //_calibrationStructureX = RFL((_calibrationStructureX = _calibrationStructureX ?? new CalibrationStructure() { XWidth = 1, YWidth = 0, Additional = (centroid.X - localCentroid.X) }), localCentroid, centroid.X);
-                //_calibrationStructureY = RFL((_calibrationStructureY = _calibrationStructureY ?? new CalibrationStructure() { XWidth = 0, YWidth = 1, Additional = (centroid.Y - localCentroid.Y) }), localCentroid, centroid.Y);
+            //// Perform SGD
+            //for (int i = 0; i < numIterations; i++)
+            //{
+            //    //_calibrationStructureX = RFL((_calibrationStructureX = _calibrationStructureX ?? new CalibrationStructure() { XWidth = 1, YWidth = 0, Additional = (centroid.X - localCentroid.X) }), localCentroid, centroid.X);
+            //    //_calibrationStructureY = RFL((_calibrationStructureY = _calibrationStructureY ?? new CalibrationStructure() { XWidth = 0, YWidth = 1, Additional = (centroid.Y - localCentroid.Y) }), localCentroid, centroid.Y);
 
-                (_calibrationStructureX, _calibrationStructureY) = LinearRegression(_calibrationStructureX,
-                    _calibrationStructureY, localCentroid, centroid);
-            }
+            //    (_calibrationStructureX, _calibrationStructureY) = LinearRegression(_calibrationStructureX,
+            //        _calibrationStructureY, localCentroid, centroid);
+            //}
+
+            MultiRegression(localCentroid, centroid);
         }
 
         private CalibrationStructure RFL(CalibrationStructure calibrationStructure, Point centroid, double goal)
@@ -167,10 +197,6 @@ namespace AirScanEmulator
             return calibrationStructure;
         }
 
-        private List<double> _x1Points;
-        private List<double> _y1Points;
-        private List<double> _x2Points;
-        private List<double> _y2Points;
         private (CalibrationStructure, CalibrationStructure) LinearRegression(CalibrationStructure calibrationStructureX, CalibrationStructure calibrationStructureY, Point centroid, Point goal)
         {
             if (_x1Points == null && _y1Points == null)
@@ -290,9 +316,108 @@ namespace AirScanEmulator
             return (calibrationStructureX, calibrationStructureY);
         }
 
+        private void MultiRegression(Point centroid, Point goal)
+        {
+            _x1Points = _pairPoints.Keys.Select(x => (double)x.X).ToList();
+            _y1Points = _pairPoints.Keys.Select(x => (double)x.Y).ToList();
+            _x2Points = _pairPoints.Values.Select(x => (double)x.X).ToList();
+            _y2Points = _pairPoints.Values.Select(x => (double)x.Y).ToList();
+
+            if (_calibrationStructureX != null)
+            {
+                // Compute the prediction using the current parameters
+                var predictionX = CalibrateValue(_calibrationStructureX, centroid);
+
+                if (Math.Abs(predictionX - goal.X) <= 3)
+                {
+                    _calibrationStructureX.IsCalibratedSequence++;
+                    if (_calibrationStructureX.IsCalibratedSequence >= 20)
+                    {
+                        _calibrationStructureX.IsCalibrated = true;
+                    }
+                }
+                else
+                {
+                    _calibrationStructureX.IsCalibratedSequence = 0;
+                }
+            }
+
+            if (_calibrationStructureX == null || _calibrationStructureX.IsCalibrated == false)
+            {
+                // Construct the input matrix X from both dimensions
+                Matrix<double> X = Matrix<double>.Build.DenseOfColumnArrays(_y1Points.ToArray(), _x1Points.ToArray(),
+                    _x1Points.Select(x => 1d).ToArray()); // Include a column of ones for the intercept
+
+                // Construct the output vector Y from the second dimension
+                Vector<double> Y = Vector<double>.Build.Dense(_x2Points.ToArray());
+
+                // Perform multivariate regression
+                var coefficients = MultipleRegression.NormalEquations(X, Y);
+
+                if (_calibrationStructureX == null)
+                    _calibrationStructureX = new CalibrationStructure();
+
+                _calibrationStructureX.XWidth = coefficients[1];
+                _calibrationStructureX.YWidth = coefficients[0];
+                _calibrationStructureX.Additional = coefficients[2];
+            }
+
+            if (_calibrationStructureY != null)
+            {
+                // Compute the prediction using the current parameters
+                var predictionY = CalibrateValue(_calibrationStructureY, centroid);
+
+                if (Math.Abs(predictionY - goal.Y) <= 3)
+                {
+                    _calibrationStructureY.IsCalibratedSequence++;
+                    if (_calibrationStructureY.IsCalibratedSequence >= 20)
+                    {
+                        _calibrationStructureY.IsCalibrated = true;
+                    }
+                }
+                else
+                {
+                    _calibrationStructureY.IsCalibratedSequence = 0;
+                }
+            }
+
+            if (_calibrationStructureY == null || _calibrationStructureY.IsCalibrated == false)
+            {
+                // Construct the input matrix X from both dimensions
+                Matrix<double> X = Matrix<double>.Build.DenseOfColumnArrays(_x1Points.ToArray(), _y1Points.ToArray(),
+                    _x1Points.Select(x => 1d).ToArray()); // Include a column of ones for the intercept
+
+                // Construct the output vector Y from the second dimension
+                Vector<double> Y = Vector<double>.Build.Dense(_y2Points.ToArray());
+
+                // Perform multivariate regression
+                var coefficients = MultipleRegression.NormalEquations(X, Y);
+
+                if (_calibrationStructureY == null)
+                    _calibrationStructureY = new CalibrationStructure();
+
+                _calibrationStructureY.XWidth = coefficients[0];
+                _calibrationStructureY.YWidth = coefficients[1];
+                _calibrationStructureY.Additional = coefficients[2];
+            }
+
+            // Predict using the coefficients
+            //double predictedX = coefficients[0] * centroid.X + coefficients[1] * centroid.Y + coefficients[2];
+            //double predictedY = coefficients[0] * x1[0] + coefficients[1] * y1[0] + coefficients[2];
+
+            var predictedPoint = GetCalibratedPoint(centroid);
+
+        }
+
         private double CalibrateValue(CalibrationStructure calibrationStructure, Point centroid)
         {
             return calibrationStructure.XWidth * calibrationStructure.GetXPower(centroid) + calibrationStructure.YWidth * calibrationStructure.GetYPower(centroid) + calibrationStructure.Additional;
+        }
+
+        public Point GetCalibratedPoint(Point centroid)
+        {
+            return new Point((int)CalibrateValue(_calibrationStructureX, centroid),
+                (int)CalibrateValue(_calibrationStructureY, centroid));
         }
     }
 }

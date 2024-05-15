@@ -56,6 +56,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="AirScanManager.cs" />
+    <Compile Include="CalibrationStructure2.cs" />
     <Compile Include="CalibrationStructure.cs" />
     <Compile Include="DBSCAN.cs" />
     <Compile Include="Extension.cs" />

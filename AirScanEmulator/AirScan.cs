@@ -13,7 +13,7 @@ namespace AirScanEmulator
     public class AirScan : TouchPictureBox
     {
         private readonly DBSCAN _dbSCAN;
-        public AirScan(Panel panel, Random rnd, DBSCAN dbSCAN, TrackBar interval)
+        public AirScan(Panel panel, Random rnd, DBSCAN dbSCAN, TrackBar interval, double angleOffset = 0d)
         {
             _dbSCAN = dbSCAN;
             this.Points = new List<Point>();
@@ -21,6 +21,7 @@ namespace AirScanEmulator
             this.BackColor = Color.FromArgb(rnd.Next(200), rnd.Next(200), rnd.Next(200)); // Set your image here
             this.Size = new System.Drawing.Size(30, 30);
             this.Location = new System.Drawing.Point(rnd.Next(panel.Width - 30), rnd.Next(panel.Height - 30));
+            this.AngleOffset = angleOffset;
 
             System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath();
             path.AddEllipse(0, 0, this.Width, this.Height);
@@ -32,6 +33,7 @@ namespace AirScanEmulator
         }
         public int Resolution { get; set; } = 360;
         public double RayCastLength { get; set; } = 100000;
+        public double AngleOffset { get; set; } = 0;
         public double FieldOfViewBeginAngle { get; set; } = 0;
         public double FieldOfViewEndAngle { get; set; } = 360;
         public List<Point> Points { get; set; }
@@ -76,7 +78,7 @@ namespace AirScanEmulator
             try
             {
                 this.Locked = true;
-                this.Points.Add(raycast.StartPoint.GetEndPoint(offsetAngle + raycast.Angle, raycast.HitLength));
+                this.Points.Add(raycast.StartPoint.GetEndPoint(this.Manager.AngleOffset + raycast.Angle, raycast.HitLength));
             }
             catch (Exception e)
             {

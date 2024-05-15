@@ -20,13 +20,12 @@ namespace AirScanEmulator
 {
     public partial class frmMain : Form
     {
-        private List<Point> mlPoints { get; set; }
+        private List<Point> _mlPoints { get; set; }
         private readonly List<AirScan> _airScans;
         private readonly List<Hand> _hands;
         private IEnumerable<TouchPoint> _touchPoints;
-        //private readonly Timer timer;
-        private readonly Random rnd;
-        private bool calibration = false;
+        private readonly Random _rnd;
+        private bool _calibration = false;
         private readonly DBSCAN _dbSCAN;
         private readonly TouchPointManager _touchPointManager;
         public frmMain()
@@ -37,11 +36,11 @@ namespace AirScanEmulator
             // Create DBSCAN instance and perform clustering
             _dbSCAN = new DBSCAN(epsilon.Value, minPts.Value);
 
-            rnd = new Random();
+            _rnd = new Random();
 
-            mlPoints = new List<Point>();
-            _airScans = new List<AirScan>() { new AirScan(mainPanel, rnd, _dbSCAN, interval) { Resolution = resolution.Value}};
-            _hands = new List<Hand> { new Hand(mainPanel, handSize.Value, rnd) { Visible = chkHand.Checked } };
+            _mlPoints = new List<Point>();
+            _airScans = new List<AirScan>() { new AirScan(mainPanel, _rnd, _dbSCAN, interval) { Resolution = resolution.Value}};
+            _hands = new List<Hand> { new Hand(mainPanel, handSize.Value, _rnd) { Visible = chkHand.Checked } };
 
             _touchPointManager = new TouchPointManager();
         }
@@ -120,9 +119,9 @@ namespace AirScanEmulator
                     }
                 }
 
-                if (chkML.Checked && mlPoints != null && mlPoints.Any())
+                if (chkML.Checked && _mlPoints != null && _mlPoints.Any())
                 {
-                    foreach (var point in mlPoints)
+                    foreach (var point in _mlPoints)
                     {
                         pen.Width = 10;
                         e.Graphics.DrawRectangle(pen, new Rectangle(point.X - 4, point.Y - 4, 4, 4));
@@ -143,7 +142,7 @@ namespace AirScanEmulator
                 mainPanel.Invalidate();
 
                 foreach (var hand in _hands)
-                    await hand.Animate(panel, handSize.Value, speed.Value, rnd);
+                    await hand.Animate(panel, handSize.Value, speed.Value, _rnd);
 
                 foreach (var airScan in _airScans)
                 {
@@ -170,7 +169,7 @@ namespace AirScanEmulator
 
         private async Task Calibration()
         {
-            while (calibration)
+            while (_calibration)
             {
                 int calibrated = 0;
                 if (_airScans.Any() && _airScans.Count > 1)
@@ -211,7 +210,7 @@ namespace AirScanEmulator
                         {
                             try
                             {
-                                mlPoints = GetMLPoints();
+                                _mlPoints = GetMLPoints();
                             }
                             catch (Exception e)
                             {
@@ -286,37 +285,43 @@ namespace AirScanEmulator
 
         private void btnAddAirScan_Click(object sender, EventArgs e)
         {
-            if (calibration)
+            if (_calibration)
             {
                 MessageBox.Show("New Airscan cannot be added in calibrating");
                 return;
             }
-            _airScans.Add(new AirScan(mainPanel, rnd, _dbSCAN, interval) { Resolution = resolution.Value});
+
+            var angleOffset = 0d;
+            if (_airScans.Any())
+            {
+                angleOffset = _rnd.Next(180);
+            }
+            _airScans.Add(new AirScan(mainPanel, _rnd, _dbSCAN, interval, angleOffset) { Resolution = resolution.Value});
         }
 
         private async void btnStartCalibration_Click(object sender, EventArgs e)
         {
-            if (calibration == false && _hands.Count != 1)
+            if (_calibration == false && _hands.Count != 1)
             {
                 MessageBox.Show("There should only exists one hand while calibrating");
                 return;
             }
 
-            if (calibration == false && _airScans.Count <= 1)
+            if (_calibration == false && _airScans.Count <= 1)
             {
                 MessageBox.Show("For calibrating at least two Airscans are needed");
                 return;
             }
 
-            calibration = !calibration;
+            _calibration = !_calibration;
             
-            btnStartCalibration.Text = calibration ? "Stop Calibration" : "Start Calibration";
+            btnStartCalibration.Text = _calibration ? "Stop Calibration" : "Start Calibration";
             
-            if(calibration)
+            if(_calibration)
             {
                 for (var i = 1; i < _airScans.Count; i++)
                 {
-                    _airScans[i].Manager.IsCalibrated = false;
+                    _airScans[i].Manager.ResetCalibration();
                 }
                 await Calibration();
             }
@@ -325,7 +330,7 @@ namespace AirScanEmulator
 
         private void btnClearAllAirScans_Click(object sender, EventArgs e)
         {
-            if (calibration)
+            if (_calibration)
             {
                 MessageBox.Show("This action is not allowed while calibrating");
                 return;
@@ -340,18 +345,18 @@ namespace AirScanEmulator
 
         private void btnAddHand_Click(object sender, EventArgs e)
         {
-            if (calibration)
+            if (_calibration)
             {
                 MessageBox.Show("New Hand cannot be added in calibrating");
                 return;
             }
-            var hand = new Hand(mainPanel, handSize.Value, rnd) { Visible = chkHand.Checked };
+            var hand = new Hand(mainPanel, handSize.Value, _rnd) { Visible = chkHand.Checked };
             _hands.Add(hand);
         }
 
         private void btnClearAllHands_Click(object sender, EventArgs e)
         {
-            if (calibration)
+            if (_calibration)
             {
                 MessageBox.Show("This action is not allowed while calibrating");
                 return;

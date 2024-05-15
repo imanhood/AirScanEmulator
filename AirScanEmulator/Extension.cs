@@ -35,5 +35,10 @@ namespace AirScanEmulator
         {
             return new Point((int)points.Average(x => x.X), (int)points.Average(x => x.Y));
         }
+
+        public static Point MoveTo(this Point startPoint, Point destinationPoint, int step = 1)
+        {
+            return new Point(startPoint.X + (destinationPoint.X - startPoint.X) / step, startPoint.Y + (destinationPoint.Y - startPoint.Y) / step);
+        }
     }
 }
