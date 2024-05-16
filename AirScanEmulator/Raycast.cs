@@ -12,12 +12,15 @@ namespace AirScanEmulator
 {
     public class RayCast
     {
-        public RayCast(Point startPoint, double angle, double maxLength)
+        public RayCast(int index, Point startPoint, double angle, double maxLength)
         {
+            this.Index = index;
             this.StartPoint = startPoint;
             this.Angle = angle;
             this.MaxLength = maxLength;
         }
+
+        public int Index { get; set; }
         public Point StartPoint { get; set; }
         public double Angle { get; set; }
         public double MaxLength { get; set; }

@@ -40,5 +40,14 @@ namespace AirScanEmulator
         {
             return new Point(startPoint.X + (destinationPoint.X - startPoint.X) / step, startPoint.Y + (destinationPoint.Y - startPoint.Y) / step);
         }
+
+        public static double GetDegrees(this Line line1, Line line2)
+        {
+            var steep1 = line1.GetSteep();
+            var steep2 = line2.GetSteep();
+            return System.Math.Atan((steep2 - steep1) / (1 + (steep1 * steep2))) * (180 / System.Math.PI);
+        }
+
+        public static double GetSteep(this Line line) => (double)(line.EndPoint.Y - line.StartPoint.Y) / (line.EndPoint.X - line.StartPoint.X);
     }
 }

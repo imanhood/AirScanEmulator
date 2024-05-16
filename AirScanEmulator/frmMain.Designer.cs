@@ -56,6 +56,8 @@
             this.epsilon = new System.Windows.Forms.TrackBar();
             this.label6 = new System.Windows.Forms.Label();
             this.minPts = new System.Windows.Forms.TrackBar();
+            this.label7 = new System.Windows.Forms.Label();
+            this.rotate = new System.Windows.Forms.TrackBar();
             ((System.ComponentModel.ISupportInitialize)(this.speed)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.handSize)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.interval)).BeginInit();
@@ -63,6 +65,7 @@
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.epsilon)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.minPts)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.rotate)).BeginInit();
             this.SuspendLayout();
             // 
             // btnAddAirScan
@@ -202,7 +205,7 @@
             // resolution
             // 
             this.resolution.Location = new System.Drawing.Point(15, 88);
-            this.resolution.Maximum = 100000;
+            this.resolution.Maximum = 10000;
             this.resolution.Minimum = 100;
             this.resolution.Name = "resolution";
             this.resolution.Size = new System.Drawing.Size(104, 45);
@@ -354,11 +357,31 @@
             this.minPts.Value = 3;
             this.minPts.Scroll += new System.EventHandler(this.minPts_Scroll);
             // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(683, 441);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(39, 13);
+            this.label7.TabIndex = 27;
+            this.label7.Text = "Rotate";
+            // 
+            // rotate
+            // 
+            this.rotate.Location = new System.Drawing.Point(684, 453);
+            this.rotate.Maximum = 360;
+            this.rotate.Name = "rotate";
+            this.rotate.Size = new System.Drawing.Size(104, 45);
+            this.rotate.TabIndex = 26;
+            this.rotate.Scroll += new System.EventHandler(this.rotate_Scroll);
+            // 
             // frmMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 489);
+            this.Controls.Add(this.label7);
+            this.Controls.Add(this.rotate);
             this.Controls.Add(this.label6);
             this.Controls.Add(this.minPts);
             this.Controls.Add(this.label5);
@@ -395,6 +418,7 @@
             this.panel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.epsilon)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.minPts)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.rotate)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -430,6 +454,8 @@
         private System.Windows.Forms.TrackBar epsilon;
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.TrackBar minPts;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.TrackBar rotate;
     }
 }
 

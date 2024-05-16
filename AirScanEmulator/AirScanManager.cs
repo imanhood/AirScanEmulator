@@ -20,7 +20,7 @@ namespace AirScanEmulator
         private double _angleOffset = Double.NaN;
         public double AngleOffset
         {
-            get => _angleOffset.IsFinite() ? _angleOffset : _airScan.AngleOffset;
+            get => _airScan.AngleOffset - (_angleOffset.IsFinite() ? _angleOffset : 0);
             internal set => _angleOffset = value;
         }
         public List<Point> Centroids => this.GetCentroids();
@@ -28,9 +28,7 @@ namespace AirScanEmulator
         private readonly AirScan _airScan;
         private CalibrationStructure _calibrationStructureX;
         private CalibrationStructure _calibrationStructureY;
-        private CalibrationStructure _calibrationStructure = new CalibrationStructure();
         private readonly DBSCAN _dbScan;
-        private readonly TrackBar _interval;
 
         public void ResetCalibration()
         {
@@ -50,11 +48,10 @@ namespace AirScanEmulator
                     _calibrationStructureY.IsCalibrated = value;
             }
         }
-        public AirScanManager(AirScan airScan, DBSCAN dbScan, TrackBar interval)
+        public AirScanManager(AirScan airScan, DBSCAN dbScan)
         {
             _airScan = airScan;
             _dbScan = dbScan;
-            _interval = interval;
         }
         private List<Point> GetCentroids()
         {
@@ -92,8 +89,7 @@ namespace AirScanEmulator
             }
             
             // Do the process with the help of Calibrator
-            return _lastCalibratedCentroids = centroids.Select(x => new Point((int)CalibrateValue(_calibrationStructureX, x),
-                (int)CalibrateValue(_calibrationStructureY, x))).ToList();
+            return _lastCalibratedCentroids = centroids.Select(GetCalibratedPoint).ToList();
         }
 
         //private List<(Point, Point)> _calibrationPoints = new List<(Point, Point)>();
@@ -373,6 +369,7 @@ namespace AirScanEmulator
                     if (_calibrationStructureY.IsCalibratedSequence >= 20)
                     {
                         _calibrationStructureY.IsCalibrated = true;
+                        
                     }
                 }
                 else
@@ -405,8 +402,6 @@ namespace AirScanEmulator
             //double predictedX = coefficients[0] * centroid.X + coefficients[1] * centroid.Y + coefficients[2];
             //double predictedY = coefficients[0] * x1[0] + coefficients[1] * y1[0] + coefficients[2];
 
-            var predictedPoint = GetCalibratedPoint(centroid);
-
         }
 
         private double CalibrateValue(CalibrationStructure calibrationStructure, Point centroid)
@@ -414,10 +409,13 @@ namespace AirScanEmulator
             return calibrationStructure.XWidth * calibrationStructure.GetXPower(centroid) + calibrationStructure.YWidth * calibrationStructure.GetYPower(centroid) + calibrationStructure.Additional;
         }
 
-        public Point GetCalibratedPoint(Point centroid)
+        public Point GetCalibratedPoint(Point point)
         {
-            return new Point((int)CalibrateValue(_calibrationStructureX, centroid),
-                (int)CalibrateValue(_calibrationStructureY, centroid));
+            if(_calibrationStructureX == null || _calibrationStructureY == null)
+                return point;
+
+            return new Point((int)CalibrateValue(_calibrationStructureX, point),
+                (int)CalibrateValue(_calibrationStructureY, point));
         }
     }
 }

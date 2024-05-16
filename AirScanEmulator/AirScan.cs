@@ -13,10 +13,11 @@ namespace AirScanEmulator
     public class AirScan : TouchPictureBox
     {
         private readonly DBSCAN _dbSCAN;
-        public AirScan(Panel panel, Random rnd, DBSCAN dbSCAN, TrackBar interval, double angleOffset = 0d)
+        public AirScan(Panel panel, Random rnd, DBSCAN dbSCAN, double angleOffset = 0d)
         {
             _dbSCAN = dbSCAN;
-            this.Points = new List<Point>();
+            //this.Points = new List<Point>();
+            this.HitRayCasts = new List<RayCast>();
 
             this.BackColor = Color.FromArgb(rnd.Next(200), rnd.Next(200), rnd.Next(200)); // Set your image here
             this.Size = new System.Drawing.Size(30, 30);
@@ -29,14 +30,16 @@ namespace AirScanEmulator
 
             // Add PictureBox to the framePanel
             panel.Controls.Add(this);
-            Manager = new AirScanManager(this, _dbSCAN, interval);
+            Manager = new AirScanManager(this, _dbSCAN);
         }
         public int Resolution { get; set; } = 360;
         public double RayCastLength { get; set; } = 100000;
         public double AngleOffset { get; set; } = 0;
         public double FieldOfViewBeginAngle { get; set; } = 0;
         public double FieldOfViewEndAngle { get; set; } = 360;
-        public List<Point> Points { get; set; }
+
+        public List<Point> Points => this.HitRayCasts.Select(x => x.StartPoint.GetEndPoint(this.AngleOffset + x.Angle, x.HitLength)).ToList();
+        public List<RayCast> HitRayCasts { get; set; }
         public List<Point> PointsFromZero => this.Points?.Select(x => new Point(x.X - this.Left, x.Y - this.Top)).ToList();
         public AirScanManager Manager { get; set; }
         public IEnumerable<Line> Lines =>
@@ -51,7 +54,7 @@ namespace AirScanEmulator
             for (int i = 0; i < rayCastValue.Value; i++)
             {
                 var angle = i * ((this.FieldOfViewEndAngle - this.FieldOfViewBeginAngle) / rayCastValue.Value) + this.FieldOfViewBeginAngle;
-                var rayCast = new RayCast(this.GetCentroid(), angle, this.RayCastLength);
+                var rayCast = new RayCast(i, this.GetCentroid(), angle, this.RayCastLength);
                 ExecuteRayCastCallback callback = Callback;
                 ThreadPool.QueueUserWorkItem((state) =>
                 {
@@ -78,11 +81,13 @@ namespace AirScanEmulator
             try
             {
                 this.Locked = true;
-                this.Points.Add(raycast.StartPoint.GetEndPoint(this.Manager.AngleOffset + raycast.Angle, raycast.HitLength));
+                //this.Points.Add(raycast.StartPoint.GetEndPoint(this.Manager.AngleOffset + raycast.Angle, raycast.HitLength));
+                this.HitRayCasts.Add(raycast);
             }
             catch (Exception e)
             {
-                this.Points = new List<Point>();
+                //this.Points = new List<Point>();
+                this.HitRayCasts = new List<RayCast>();
             }
             finally
             {
@@ -97,11 +102,13 @@ namespace AirScanEmulator
                 try
                 {
                         this.Locked = true;
-                        this.Points.Clear();
+                        //this.Points.Clear();
+                        this.HitRayCasts.Clear();
                 }
                 catch (Exception e)
                 {
-                    this.Points = new List<Point>();
+                    //this.Points = new List<Point>();
+                    this.HitRayCasts = new List<RayCast>();
                 }
                 finally
                 {
@@ -109,6 +116,13 @@ namespace AirScanEmulator
                 }
             }
             return await this.ExecuteRayCast(obstacles, raycast);
+        }
+
+        public int[] GetOutput()
+        {
+            var output = new int[this.Resolution];
+            HitRayCasts.ForEach(x => output[x.Index] = (int)x.HitLength);
+            return output;
         }
     }
 }

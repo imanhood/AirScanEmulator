@@ -15,6 +15,7 @@ using static AirScanEmulator.frmMain;
 using static System.Windows.Forms.LinkLabel;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 using Newtonsoft.Json.Linq;
+using static System.Windows.Forms.AxHost;
 
 namespace AirScanEmulator
 {
@@ -39,7 +40,10 @@ namespace AirScanEmulator
             _rnd = new Random();
 
             _mlPoints = new List<Point>();
-            _airScans = new List<AirScan>() { new AirScan(mainPanel, _rnd, _dbSCAN, interval) { Resolution = resolution.Value}};
+
+            rotate.Value = _rnd.Next(90);
+
+            _airScans = new List<AirScan>() { new AirScan(mainPanel, _rnd, _dbSCAN, rotate.Value) { Resolution = resolution.Value}};
             _hands = new List<Hand> { new Hand(mainPanel, handSize.Value, _rnd) { Visible = chkHand.Checked } };
 
             _touchPointManager = new TouchPointManager();
@@ -71,12 +75,11 @@ namespace AirScanEmulator
 
                     if (optNoPoints.Checked == false)
                     {
-                        //airScan.Locked = true;
                         var airScanCentroid = airScan.GetCentroid();
-                        //var lines = airScan.Points.Select(x => new Line(, x));
-                        var points = airScan.Points; //FromZero.Select(x => new Point(x.X, x.Y).Move(airScan.Location));
+                        var points = airScan.PointsFromZero
+                            .Select(airScan.Manager.GetCalibratedPoint)
+                            .Select(x => x.Move(_airScans[0].Location));
 
-                        //airScan.Locked = false;
                         if (points != null && points.Any())
                         {
                             foreach (var point in points)
@@ -91,8 +94,8 @@ namespace AirScanEmulator
 
                     if (chkCentroids.Checked)
                     {
-                        var centroids = airScan.Manager.CalibratedCentroids.Select(x => x.Move(_airScans[0].Location));
-                        if (centroids != null && centroids.Any())
+                        var centroids = airScan.Manager.CalibratedCentroids.Select(x => x.Move(_airScans[0].Location)).ToList();
+                        if (centroids.Any())
                         {
                             pen.Width = 6;
                             foreach (var centroid in centroids)
@@ -188,13 +191,27 @@ namespace AirScanEmulator
                                 Console.WriteLine(e);
                             }
                             if (_airScans[i].Manager.IsCalibrated)
+                            {
+                                _airScans[i].Manager.AngleOffset =
+                                    new Line(
+                                        _airScans[i].Manager.GetCalibratedPoint(new Point(0, 0)),
+                                        _airScans[i].Manager.GetCalibratedPoint(new Point(10, 10))
+                                    ).GetDegrees(
+                                        new Line(
+                                            new Point(0, 0),
+                                            new Point(10, 10)
+                                        )
+                                    );
                                 calibrated++;
+                            }
                         }
                     }
                 }
 
                 if (calibrated == _airScans.Count - 1)
+                {
                     btnStartCalibration.PerformClick();
+                }
 
                 // Use MachineLearning
                 if (chkML.Checked)
@@ -296,7 +313,7 @@ namespace AirScanEmulator
             {
                 angleOffset = _rnd.Next(180);
             }
-            _airScans.Add(new AirScan(mainPanel, _rnd, _dbSCAN, interval, angleOffset) { Resolution = resolution.Value});
+            _airScans.Add(new AirScan(mainPanel, _rnd, _dbSCAN, angleOffset) { Resolution = resolution.Value});
         }
 
         private async void btnStartCalibration_Click(object sender, EventArgs e)
@@ -412,6 +429,20 @@ namespace AirScanEmulator
         private void minPts_Scroll(object sender, EventArgs e)
         {
             _dbSCAN.MinPts = minPts.Value;
+        }
+
+        private void rotate_Scroll(object sender, EventArgs e)
+        {
+            if(_airScans.Any() == false)
+                return;
+
+            var diff = _airScans[0].AngleOffset - rotate.Value;
+            _airScans[0].AngleOffset = rotate.Value;
+
+            for (int i = 1; i < _airScans.Count; i++)
+            {
+                _airScans[i].AngleOffset -= diff;
+            }
         }
     }
 }
